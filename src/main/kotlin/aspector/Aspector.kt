@@ -2,11 +2,14 @@ package aspector
 
 import aspector.annotations.AspectElement
 import aspector.annotations.Stub
+import aspector.classes.AnnotationValue
 import aspector.generate.AspectDeclaringException
 import aspector.generate.ClassMaker
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
-import aspector.classes.elements.EAspectMethod
+import aspector.classes.EAspectMethod
+import aspector.classes.EnumValue
+import aspector.generate.ClassMaker.Companion.asName
 import java.lang.reflect.Modifier
 
 class Aspector(
@@ -27,7 +30,7 @@ class Aspector(
       }
 
       val nonStubInterfaces = aspectDeclare.annotatedInterfaces
-        .filter { it.getAnnotation(Stub::class.java) == null }
+        .filter { it.getAnnotation(Stub::class.asName()) == null }
         .map { it.type }
       // Register implement interfaces
       nonStubInterfaces.forEach {
@@ -37,7 +40,11 @@ class Aspector(
       // Register aspect methods
       aspectDeclare.methods
         .filter { !Modifier.isPrivate(it.flags) && !Modifier.isStatic(it.flags) }
-        .map { it to (it.getAnnotation(AspectElement::class.java)?.using ?: Using.OVERRIDE) }
+        .map {
+          it to (it.getAnnotation(AspectElement::class.asName())?.getValue<EnumValue<Using>>("using")
+            ?.value
+            ?: Using.OVERRIDE)
+        }
         .forEach { (method, using) ->
           registerAspectMethod(
             EAspectMethod(

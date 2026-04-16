@@ -2,8 +2,8 @@ package aspector.classes
 
 import org.objectweb.asm.Type
 
-class ClassName(
-  val signatureName: String,
+class ClassName private constructor(
+  val descriptor: String,
 ) {
   companion object {
     val V = ClassName("V")
@@ -16,10 +16,11 @@ class ClassName(
     val F = ClassName("F")
     val D = ClassName("D")
 
-    val jObject = by(Object::class.java)
-    val jString = by(String::class.java)
+    val jObject = byClass(Object::class.java)
+    val jString = byClass(String::class.java)
+    val jClassName = byClass(ClassName::class.java)
 
-    private fun signToInternal(signatureName: String): String = when(signatureName.first()) {
+    private fun descToInternal(signatureName: String): String = when(signatureName.first()) {
       'V' -> "void"
       'Z' -> "boolean"
       'C' -> "char"
@@ -33,11 +34,11 @@ class ClassName(
         signatureName.substring(1).trimEnd(';')
       }
       '[' -> {
-        signToInternal(signatureName.substring(1))
+        descToInternal(signatureName.substring(1))
       }
       else -> throw IllegalArgumentException("Illegal class name: $signatureName")
     }
-    private fun internalToSign(internalName: String): String = when (internalName) {
+    private fun internalToDesc(internalName: String): String = when (internalName) {
       "void" -> "V"
       "boolean" -> "Z"
       "char" -> "C"
@@ -51,31 +52,32 @@ class ClassName(
               else "L$internalName;"
     }
 
-    fun by(clazz: Class<*>) = ClassName(internalToSign(Type.getInternalName(clazz)))
-    fun byInternalName(internalName: String) = ClassName(internalToSign(internalName))
-    fun byName(className: String) = ClassName(internalToSign(className.replace(".", "/")))
+    fun byClass(clazz: Class<*>) = ClassName(Type.getDescriptor(clazz))
+    fun byDescriptor(descriptor: String) = ClassName(descriptor)
+    fun byInternalName(internalName: String) = ClassName(internalToDesc(internalName))
+    fun byName(name: String) = ClassName(internalToDesc(name.replace(".", "/")))
   }
 
-  val internalName: String get() = signToInternal(signatureName)
-  val name: String get() = signToInternal(signatureName).replace("/", ".")
+  val internalName: String get() = descToInternal(descriptor)
+  val name: String get() = descToInternal(descriptor).replace("/", ".")
   val simpleName: String get() = name.substringAfterLast(".")
   val packageName: String get() = name.substringBeforeLast(".")
 
-  val isPrimitive: Boolean get() = signatureName.length == 1
-  val isArray: Boolean get() = signatureName.startsWith("[")
+  val isPrimitive: Boolean get() = descriptor.length == 1
+  val isArray: Boolean get() = descriptor.startsWith("[")
 
-  val componentName: ClassName get() = ClassName(signatureName.substringAfter("["))
-  val arrayName: ClassName get() = ClassName("[$signatureName")
+  val componentName: ClassName get() = ClassName(descriptor.substringAfter("["))
+  val arrayName: ClassName get() = ClassName("[$descriptor")
 
   override fun toString() = name
 
-  override fun hashCode(): Int = signatureName.hashCode()
+  override fun hashCode(): Int = descriptor.hashCode()
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (javaClass != other?.javaClass) return false
 
     other as ClassName
 
-    return signatureName == other.signatureName
+    return descriptor == other.descriptor
   }
 }

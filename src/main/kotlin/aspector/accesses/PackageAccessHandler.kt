@@ -4,9 +4,9 @@ import aspector.annotations.PackageAccessor
 import aspector.generate.ClassMaker.Companion.asName
 import aspector.classes.ClassAccessor
 import aspector.classes.ClassName
-import aspector.classes.elements.ClassElement
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EMethod
+import aspector.classes.ClassElement
+import aspector.classes.EConstructor
+import aspector.classes.EMethod
 import java.io.File
 import java.lang.reflect.Modifier
 

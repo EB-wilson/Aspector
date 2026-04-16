@@ -14,8 +14,8 @@ import aspector.classes.ClassName.Companion.S
 import aspector.classes.ClassName.Companion.V
 import aspector.classes.ClassName.Companion.Z
 import aspector.classes.MethodSignature
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EMethod
+import aspector.classes.EConstructor
+import aspector.classes.EMethod
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
@@ -88,7 +88,7 @@ class UnsafePackageAccessHandler private constructor(
       null
     )
     classWriter.visitAnnotation(
-      packageAccessorT.signatureName,
+      packageAccessorT.descriptor,
       true
     ).visitEnd()
 
@@ -153,7 +153,7 @@ class UnsafePackageAccessHandler private constructor(
     visitVarInsn(Opcodes.ALOAD, 0)
     method.paramTypes.forEachIndexed { n, param ->
       val varIndex = n + 1
-      when (param.signatureName) {
+      when (param.descriptor) {
         "B", "S", "I", "Z", "C" -> visitVarInsn(Opcodes.ILOAD, varIndex)
         "J" -> visitVarInsn(Opcodes.LLOAD, varIndex)
         "F" -> visitVarInsn(Opcodes.FLOAD, varIndex)

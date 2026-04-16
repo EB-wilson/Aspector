@@ -1,13 +1,9 @@
 package aspector.classes
 
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EField
-import aspector.classes.elements.EMethod
 import java.lang.reflect.Modifier
 
 abstract class ClassDecl<T: Any>(
   val name: ClassName,
-  val flags: Int,
 ) {
   companion object {
     const val BRIDGE: Int = 0x00000040
@@ -18,6 +14,7 @@ abstract class ClassDecl<T: Any>(
     const val MANDATED: Int = 0x00008000
   }
 
+  abstract val flags: Int
   abstract val superClass: ClassDecl<*>?
   abstract val annotatedSuperClass: AnnotatedType<*>?
   abstract val interfaces: List<ClassDecl<*>>
@@ -26,6 +23,12 @@ abstract class ClassDecl<T: Any>(
   abstract val fields: List<EField>
   abstract val constructors: List<EConstructor<T>>
   abstract val methods: List<EMethod>
+
+  abstract val annotations: List<EAnnotation>
+
+  @Suppress("UNCHECKED_CAST")
+  fun getAnnotation(annoTypeName: ClassName) =
+    annotations.find { it.annotationType == annoTypeName }
 
   val isPublic get() = Modifier.isPublic(flags)
   val isProtected get() = Modifier.isProtected(flags)
@@ -37,5 +40,5 @@ abstract class ClassDecl<T: Any>(
 
   val isPrimitive get() = name.isPrimitive
   val isArray get() = name.isArray
-  val isEnum get() = (flags and ENUM) != 0 && superClass?.name == ClassName.by(Enum::class.java)
+  val isEnum get() = (flags and ENUM) != 0 && superClass?.name == ClassName.Companion.byClass(Enum::class.java)
 }

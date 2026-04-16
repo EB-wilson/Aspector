@@ -1,8 +1,6 @@
-package aspector.classes.elements
+package aspector.classes
 
 import aspector.Using
-import aspector.classes.AnnotatedType
-import aspector.classes.ClassDecl
 
 open class EAspectMethod(
   declaring: ClassDecl<*>,
@@ -11,7 +9,7 @@ open class EAspectMethod(
   returnType: AnnotatedType<*>,
   flag: Int,
   val using: Using,
-  annotations : List<Annotation>,
+  annotations : List<EAnnotation>,
 ): EMethod(
   declaring,
   methodName,

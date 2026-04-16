@@ -1,18 +1,6 @@
 package aspector.classes
 
-import aspector.classes.ClassAccessor.Companion.booleanDecl
-import aspector.classes.ClassAccessor.Companion.byteDecl
-import aspector.classes.ClassAccessor.Companion.charDecl
-import aspector.classes.ClassAccessor.Companion.doubleDecl
-import aspector.classes.ClassAccessor.Companion.floatDecl
-import aspector.classes.ClassAccessor.Companion.intDecl
-import aspector.classes.ClassAccessor.Companion.longDecl
-import aspector.classes.ClassAccessor.Companion.shortDecl
-import aspector.classes.ClassAccessor.Companion.voidDecl
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EField
-import aspector.classes.elements.EMethod
-import aspector.classes.elements.Parameter
+import aspector.generate.ClassMaker.Companion.asName
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.KClass
@@ -20,15 +8,49 @@ import kotlin.reflect.KClass
 class ReflectClassAccessor(
   vararg loaders: ClassLoader
 ): ClassAccessor {
+  companion object {
+    private fun Annotation.asEAnnotation(): EAnnotation {
+      val annoType = javaClass
+      val pairs = annoType.methods.map { method ->
+        method.isAccessible = true
+        method.name to handleAnnotationValue(method.name, method.invoke(this))
+      }
+
+      return EAnnotation(
+        annoType.asName(),
+        pairs.toMap()
+      )
+    }
+
+    private fun handleAnnotationValue(name: String, value: Any): AnnotationValue<*, *> {
+      return when(value) {
+        is ByteArray, is ShortArray, is IntArray, is LongArray,
+        is FloatArray, is DoubleArray, is BooleanArray, is CharArray,
+        is String, is java.lang.Byte, is java.lang.Short, is Integer, is java.lang.Long,
+        is java.lang.Float, is java.lang.Double, is java.lang.Boolean, is Character ->
+          Value(name, value)
+        is Class<*> ->
+          TypeValue(name, value.asName())
+        is Enum<*> ->
+          EnumValue(name, value.javaClass.asName(), value.name)
+        is Array<*> ->
+          Value(name, value.map { handleAnnotationValue(name, it!!) }.toTypedArray())
+        else -> throw IllegalArgumentException("Unsupported value type: $value")
+      }
+    }
+  }
+
   private val attachedClassLoader = loaders.takeIf { it.any() }?.toMutableList()
                                     ?: mutableListOf(ReflectClassAccessor::class.java.classLoader)
+
+  private val loadedDeclMap = mutableMapOf<ClassName, ClassDecl<*>>()
 
   fun attachClassLoader(classLoader: ClassLoader) {
     attachedClassLoader += classLoader
   }
 
   private fun loadClass(className: ClassName): Class<*> {
-    return when (className.signatureName) {
+    return when (className.descriptor) {
       "V" -> Void.TYPE!!
       "B" -> Byte::class.java
       "S" -> Short::class.java
@@ -66,30 +88,33 @@ class ReflectClassAccessor(
 
   @Suppress("UNCHECKED_CAST")
   override fun <T : Any> getClassDecl(className: ClassName): ClassDecl<T> {
-    return when (className.signatureName) {
-      "V" -> voidDecl
-      "B" -> byteDecl
-      "S" -> shortDecl
-      "I" -> intDecl
-      "J" -> longDecl
-      "F" -> floatDecl
-      "D" -> doubleDecl
-      "C" -> charDecl
-      "Z" -> booleanDecl
+    return when (className.descriptor) {
+      "V" -> ClassAccessor.voidDecl
+      "B" -> ClassAccessor.byteDecl
+      "S" -> ClassAccessor.shortDecl
+      "I" -> ClassAccessor.intDecl
+      "J" -> ClassAccessor.longDecl
+      "F" -> ClassAccessor.floatDecl
+      "D" -> ClassAccessor.doubleDecl
+      "C" -> ClassAccessor.charDecl
+      "Z" -> ClassAccessor.booleanDecl
       else -> {
-        if (className.isArray) {
-          return ArrayClassDecl(loadClass(className.componentName))
-        }
+        return loadedDeclMap.getOrPut(className) {
+          if (className.isArray) {
+            return ArrayClassDecl(loadClass(className.componentName))
+          }
 
-        val clazz = loadClass(className)
-        ReflectClassDecl(this, clazz) as ClassDecl<T>
+          val clazz = loadClass(className)
+          ReflectClassDecl(this, clazz)
+        } as ClassDecl<T>
       }
     } as ClassDecl<T>
   }
 
   private class ArrayClassDecl<T: Any>(
     clazz: Class<*>,
-  ): ClassDecl<T>(ClassName.by(clazz), clazz.modifiers){
+  ): ClassDecl<T>(ClassName.byClass(clazz)){
+    override val flags: Int get() = Modifier.PUBLIC or Modifier.FINAL
     override val superClass: ClassDecl<*>? = null
     override val annotatedSuperClass: AnnotatedType<*>? = null
     override val interfaces: List<ClassDecl<*>> = emptyList()
@@ -98,7 +123,7 @@ class ReflectClassAccessor(
       EField(
         this,
         "length",
-        AnnotatedType(intDecl, emptyList()),
+        AnnotatedType(ClassAccessor.intDecl, emptyList()),
         Modifier.PUBLIC or Modifier.FINAL,
         null,
         emptyList(),
@@ -106,12 +131,14 @@ class ReflectClassAccessor(
     )
     override val constructors: List<EConstructor<T>> = emptyList()
     override val methods: List<EMethod> = emptyList()
+    override val annotations: List<EAnnotation> = emptyList()
   }
 
   private class ReflectClassDecl<T : Any>(
     private val accessor: ClassAccessor,
     private val clazz: Class<T>
-  ): ClassDecl<T>(ClassName.by(clazz), clazz.modifiers){
+  ): ClassDecl<T>(ClassName.byClass(clazz)){
+    override val flags: Int get() = clazz.modifiers
     override val superClass: ClassDecl<*>? by lazy { clazz.superclass?.toDecl() }
     override val annotatedSuperClass: AnnotatedType<*>? by lazy { getSuperClassWithAnnotations(clazz) }
 
@@ -131,7 +158,7 @@ class ReflectClassAccessor(
           field.annotatedType.toAnnoType<Any>(),
           field.modifiers,
           null,
-          field.annotations.toList(),
+          field.annotations.map { it.asEAnnotation() },
         )
       }
     }
@@ -143,10 +170,10 @@ class ReflectClassAccessor(
           constructor.parameters.map { p -> Parameter(
             p.name,
             p.annotatedType.toAnnoType<Any>(),
-            p.annotations.toList(),
+            p.annotations.map { it.asEAnnotation() },
           ) },
           constructor.modifiers,
-          constructor.annotations.toList(),
+          constructor.annotations.map { it.asEAnnotation() },
         )
       }
     }
@@ -159,16 +186,20 @@ class ReflectClassAccessor(
           method.parameters.map { p -> Parameter(
             p.name,
             p.annotatedType.toAnnoType<Any>(),
-            p.annotations.toList(),
+            p.annotations.map { it.asEAnnotation() },
           ) },
           method.annotatedReturnType.toAnnoType<Any>(),
           method.modifiers,
-          method.annotations.toList(),
+          method.annotations.map { it.asEAnnotation() },
         )
       }
     }
 
-    private fun <T: Any> Class<T>.toDecl() = accessor.getClassDecl<T>(ClassName.by(this))
+    override val annotations: List<EAnnotation> by lazy {
+      clazz.declaredAnnotations.map { it.asEAnnotation() }
+    }
+
+    private fun <T: Any> Class<T>.toDecl() = accessor.getClassDecl<T>(ClassName.byClass(this))
 
     @Suppress("UNCHECKED_CAST")
     private fun <T: Any> java.lang.reflect.AnnotatedType.toAnnoType(): AnnotatedType<T> =
@@ -176,7 +207,7 @@ class ReflectClassAccessor(
         is ParameterizedType -> t.rawType as Class<T>
         is Class<*> -> t as Class<T>
         else -> throw UnsupportedOperationException("Unsupported type ${t.javaClass.name}")
-      }).toDecl(), annotations.toList())
+      }).toDecl(), annotations.map { it.asEAnnotation() })
 
     private fun getSuperClassWithAnnotations(clazz: Class<*>): AnnotatedType<*>? {
       if (clazz.superclass == null) return null
@@ -190,7 +221,7 @@ class ReflectClassAccessor(
 
       return AnnotatedType(
         clazz.superclass.toDecl(),
-        list
+        list.map { it.asEAnnotation() }
       )
     }
 
@@ -211,7 +242,7 @@ class ReflectClassAccessor(
 
       return typeAnnotations.map {
         val clazz = it.key
-        val annotations = it.value
+        val annotations = it.value.map { a -> a.asEAnnotation() }
         AnnotatedType(
           clazz.toDecl(),
           annotations

@@ -15,9 +15,9 @@ import aspector.classes.ClassAccessor
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
 import aspector.classes.MethodSignature
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EField
-import aspector.classes.elements.EMethod
+import aspector.classes.EConstructor
+import aspector.classes.EField
+import aspector.classes.EMethod
 import org.objectweb.asm.*
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
@@ -83,7 +83,7 @@ class AspectMaker private constructor(
       val fieldVisitor = cw.visitField(
         it.flags,
         it.name,
-        it.type.name.signatureName,
+        it.type.name.descriptor,
         null,
         it.constant
       )
@@ -246,7 +246,7 @@ class AspectMaker private constructor(
     visitVarInsn(Opcodes.ALOAD, 0)
     method.paramTypes.forEachIndexed { n, param ->
       val varIndex = n + 1
-      when (param.signatureName) {
+      when (param.descriptor) {
         "B", "S", "I", "Z", "C" -> visitVarInsn(Opcodes.ILOAD, varIndex)
         "J" -> visitVarInsn(Opcodes.LLOAD, varIndex)
         "F" -> visitVarInsn(Opcodes.FLOAD, varIndex)

@@ -1,14 +1,10 @@
-package aspector.classes.elements
-
-import aspector.classes.ClassDecl
-import aspector.classes.ClassName
-import aspector.classes.MethodSignature
+package aspector.classes
 
 open class EConstructor<T: Any>(
   declaring: ClassDecl<T>,
   val parameters: List<Parameter>,
   flag: Int,
-  annotations: List<Annotation>,
+  annotations: List<EAnnotation>,
 ): ClassElement(
   declaring,
   "<init>",

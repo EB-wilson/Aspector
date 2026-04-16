@@ -1,8 +1,6 @@
 package aspector.classes
 
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EField
-import aspector.classes.elements.EMethod
+import java.lang.reflect.Modifier
 
 interface ClassAccessor {
   companion object {
@@ -22,7 +20,8 @@ interface ClassAccessor {
 
   private class PrimitiveClassDecl<T: Any>(
     clazz: Class<T>,
-  ): ClassDecl<T>(ClassName.by(clazz), clazz.modifiers){
+  ): ClassDecl<T>(ClassName.byClass(clazz)){
+    override val flags: Int = Modifier.PUBLIC or Modifier.FINAL
     override val superClass: ClassDecl<*>? = null
     override val annotatedSuperClass: AnnotatedType<*>? = null
     override val interfaces: List<ClassDecl<*>> = emptyList()
@@ -30,5 +29,6 @@ interface ClassAccessor {
     override val fields: List<EField> = emptyList()
     override val constructors: List<EConstructor<T>> = emptyList()
     override val methods: List<EMethod> = emptyList()
+    override val annotations: List<EAnnotation> get() = emptyList()
   }
 }

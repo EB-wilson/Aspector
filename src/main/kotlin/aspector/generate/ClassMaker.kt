@@ -5,17 +5,19 @@ import aspector.classes.BytecodeLoader
 import aspector.classes.ClassAccessor
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
-import aspector.classes.elements.ClassElement
-import aspector.classes.elements.EAspectMethod
-import aspector.classes.elements.EConstructor
-import aspector.classes.elements.EField
-import aspector.classes.elements.EMethod
+import aspector.classes.ClassElement
+import aspector.classes.EAspectMethod
+import aspector.classes.EConstructor
+import aspector.classes.EField
+import aspector.classes.EMethod
+import kotlin.reflect.KClass
 
 abstract class ClassMaker(
   val bytesAccessor: ClassAccessor
 ) {
   companion object {
-    @JvmStatic fun Class<*>.asName() = ClassName.by(this)
+    @JvmStatic fun KClass<*>.asName() = ClassName.byClass(java)
+    @JvmStatic fun Class<*>.asName() = ClassName.byClass(this)
   }
 
   fun <T: Any> makeClass(

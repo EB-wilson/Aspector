@@ -39,11 +39,11 @@ data class MethodSignature(
             builder.append(c)
 
             if (ret) {
-              returnType = ClassName(builder.toString())
+              returnType = ClassName.byDescriptor(builder.toString())
               builder.clear()
             }
             else {
-              paramTypes.add(ClassName(builder.toString()))
+              paramTypes.add(ClassName.byDescriptor(builder.toString()))
               builder.clear()
             }
           }
@@ -55,7 +55,7 @@ data class MethodSignature(
         }
       }
 
-      returnType = returnType?: ClassName(builder.toString())
+      returnType = returnType?: ClassName.byDescriptor(builder.toString())
       return MethodSignature(
         name,
         paramTypes,
@@ -98,5 +98,5 @@ data class MethodSignature(
     return result
   }
 
-  fun jvmDescriptor() = "(${StringBuilder().also { b -> paramTypes.forEach { b.append(it.signatureName) } }})${returnType.signatureName}"
+  fun jvmDescriptor() = "(${StringBuilder().also { b -> paramTypes.forEach { b.append(it.descriptor) } }})${returnType.descriptor}"
 }

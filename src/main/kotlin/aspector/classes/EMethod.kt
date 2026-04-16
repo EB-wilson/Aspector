@@ -1,8 +1,4 @@
-package aspector.classes.elements
-
-import aspector.classes.AnnotatedType
-import aspector.classes.ClassDecl
-import aspector.classes.MethodSignature
+package aspector.classes
 
 open class EMethod(
   declaring: ClassDecl<*>,
@@ -10,7 +6,7 @@ open class EMethod(
   val parameters: List<Parameter>,
   val annotatedReturnType: AnnotatedType<*>,
   accessFlag: Int,
-  annotations: List<Annotation>,
+  annotations: List<EAnnotation>,
 ): ClassElement(
   declaring,
   name,

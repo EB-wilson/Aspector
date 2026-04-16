@@ -1,7 +1,4 @@
-package aspector.classes.elements
-
-import aspector.classes.AnnotatedType
-import aspector.classes.ClassDecl
+package aspector.classes
 
 open class EField(
   declaring: ClassDecl<*>,
@@ -9,7 +6,7 @@ open class EField(
   val annotatedType: AnnotatedType<*>,
   flag: Int,
   val constant: Any?,
-  annotations: List<Annotation>,
+  annotations: List<EAnnotation>,
 ): ClassElement(
   declaring,
   name,
