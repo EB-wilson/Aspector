@@ -22,6 +22,7 @@ import org.objectweb.asm.*
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 import java.io.File
+import java.lang.reflect.Modifier
 
 class AspectMaker private constructor(
   classAccessor: ClassAccessor,
@@ -229,6 +230,13 @@ class AspectMaker private constructor(
       bytecode
     )
     return loader.loadClass(name)
+  }
+
+  override fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>) {
+    // Check sourceClass accessible
+    if (sourceClass.flags.let {
+      Modifier.isFinal(it) || Modifier.isPrivate(it)
+    }) throw IllegalArgumentException("Source class ${aspectImpl.name} must not be final or private")
   }
 
   private fun MethodVisitor.returnValue(method: EMethod) {

@@ -1,6 +1,7 @@
 package aspector.classes
 
 import aspector.generate.ClassMaker.Companion.asName
+import jdk.internal.reflect.CallerSensitive
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.KClass
@@ -10,11 +11,15 @@ class ReflectClassAccessor(
 ): ClassAccessor {
   companion object {
     private fun Annotation.asEAnnotation(): EAnnotation {
-      val annoType = javaClass
-      val pairs = annoType.methods.map { method ->
-        method.isAccessible = true
-        method.name to handleAnnotationValue(method.name, method.invoke(this))
-      }
+      val annoType = javaClass.interfaces.first()
+      val pairs = annoType.methods
+        .filter {
+          it.parameters.isEmpty()
+          && it.name != "toString" && it.name != "hashCode" && it.name != "annotationType"
+        }
+        .map { method ->
+          method.name to handleAnnotationValue(method.name, method.invoke(this))
+        }
 
       return EAnnotation(
         annoType.asName(),

@@ -1,8 +1,21 @@
 import aspector.RuntimeAspector
+import aspector.Using
 import aspector.accesses.UnsafePackageAccessHandler
+import aspector.annotations.AspectElement
 import aspector.annotations.Stub
 import aspector.classes.BytecodeClassLoader
 import aspector.generate.AspectMaker
+import kotlin.reflect.KClass
+
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class TestAnno(
+  val str: String,
+  val type: KClass<*>,
+  val arrayTypes: Array<KClass<*>>,
+  val arrayEnum: Array<Using>,
+  val intArray: IntArray,
+)
 
 interface Aspect {
   fun definePackage(c: Class<*>): Package
@@ -17,6 +30,14 @@ class LoaderAspect:
     @Stub AccessStub,
     Aspect
 {
+  @TestAnno(
+    "test text",
+    Aspect::class,
+    [Aspect::class, AccessStub::class],
+    [Using.AFTER_RETURN, Using.OVERRIDE],
+    [12, 25, 74, 1]
+  )
+  @AspectElement(Using.OVERRIDE)
   override fun definePackage(c: Class<*>): Package{
     println("definePackage: $c")
     return super<AccessStub>.definePackage(c)

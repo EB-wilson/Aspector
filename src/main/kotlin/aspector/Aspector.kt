@@ -2,7 +2,6 @@ package aspector
 
 import aspector.annotations.AspectElement
 import aspector.annotations.Stub
-import aspector.classes.AnnotationValue
 import aspector.generate.AspectDeclaringException
 import aspector.generate.ClassMaker
 import aspector.classes.ClassDecl
@@ -19,7 +18,8 @@ class Aspector(
     aspectDeclare: ClassDecl<*>,
     targetClass: ClassDecl<T>,
   ): AspectDecl<T> {
-    checkAspectable(aspectDeclare, targetClass)
+    checkAspectDeclare(aspectDeclare, targetClass)
+    classMaker.checkAspectable(aspectDeclare, targetClass)
 
     val aspectDecl = classMaker.makeClass(aspectDeclare, targetClass) {
       val stub = findStub(aspectDeclare)
@@ -41,7 +41,8 @@ class Aspector(
       aspectDeclare.methods
         .filter { !Modifier.isPrivate(it.flags) && !Modifier.isStatic(it.flags) }
         .map {
-          it to (it.getAnnotation(AspectElement::class.asName())?.getValue<EnumValue<Using>>("using")
+          it to (it.getAnnotation(AspectElement::class.asName())
+            ?.getValue<EnumValue<Using>>("using")
             ?.value
             ?: Using.OVERRIDE)
         }
@@ -76,31 +77,26 @@ class Aspector(
     return aspectDecl
   }
 
-  private fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>) {
+  private fun checkAspectDeclare(aspectDecl: ClassDecl<*>, targetClass: ClassDecl<*>) {
     // Check source type
-    if (sourceClass.let {
+    if (targetClass.let {
       it.isPrimitive || it.isEnum || it.isArray || it.isInterface
-    }) throw IllegalArgumentException("Source class ${aspectImpl.name} must be a normal class")
+    }) throw IllegalArgumentException("Source class ${aspectDecl.name} must be a normal class")
 
     // Check implement type
-    if (aspectImpl.let {
+    if (aspectDecl.let {
       it.isPrimitive || it.isEnum || it.isArray || it.isInterface
-    }) throw IllegalArgumentException("Aspect implement class ${aspectImpl.name} must be a normal class")
-
-    // Check sourceClass accessible
-    if (sourceClass.flags.let {
-      Modifier.isFinal(it) || Modifier.isPrivate(it)
-    }) throw IllegalArgumentException("Source class ${aspectImpl.name} must not be final or private")
+    }) throw IllegalArgumentException("Aspect implement class ${aspectDecl.name} must be a normal class")
 
     // Check stub, super class must be Stub
-    if (aspectImpl.annotatedSuperClass?.let {
-        it.type.name != ClassName.jObject && !it.annotations.any{ a -> a is Stub }
-    }?: false) throw AspectDeclaringException("Super class of aspect implement must be annotated by @Stub")
+    if (aspectDecl.annotatedSuperClass?.let {
+      it.type.name != ClassName.jObject && !it.annotations.any{ a -> a.annotationType == Stub::class.asName() }
+    } ?: false) throw AspectDeclaringException("Super class of aspect implement must be annotated by @Stub")
   }
 
   private fun findStub(aspectImpl: ClassDecl<*>) =
     (listOfNotNull(aspectImpl.annotatedSuperClass) + aspectImpl.annotatedInterfaces)
-      .filter { it.annotations.any { a -> a is Stub } }
+      .filter { it.annotations.any { a -> a.annotationType == Stub::class.asName() } }
       .map { it.type }
       .toSet()
 }

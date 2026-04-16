@@ -10,6 +10,7 @@ import aspector.classes.EAspectMethod
 import aspector.classes.EConstructor
 import aspector.classes.EField
 import aspector.classes.EMethod
+import kotlin.jvm.Throws
 import kotlin.reflect.KClass
 
 abstract class ClassMaker(
@@ -50,6 +51,9 @@ abstract class ClassMaker(
     className: ClassName,
     bytecode: ByteArray,
   ): Class<*>
+
+  @Throws(Throwable::class)
+  abstract fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>)
 
   @Suppress("UNCHECKED_CAST")
   inner class AspectResult<T: Any>(
