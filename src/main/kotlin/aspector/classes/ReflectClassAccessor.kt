@@ -1,7 +1,6 @@
 package aspector.classes
 
 import aspector.generate.ClassMaker.Companion.asName
-import jdk.internal.reflect.CallerSensitive
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.KClass
@@ -18,7 +17,7 @@ class ReflectClassAccessor(
           && it.name != "toString" && it.name != "hashCode" && it.name != "annotationType"
         }
         .map { method ->
-          method.name to handleAnnotationValue(method.name, method.invoke(this))
+          method.name to handleAnnotationValue(method.invoke(this))
         }
 
       return EAnnotation(
@@ -27,19 +26,21 @@ class ReflectClassAccessor(
       )
     }
 
-    private fun handleAnnotationValue(name: String, value: Any): AnnotationValue<*, *> {
+    private fun handleAnnotationValue(value: Any): AnnotationValue<*, *> {
       return when(value) {
         is ByteArray, is ShortArray, is IntArray, is LongArray,
         is FloatArray, is DoubleArray, is BooleanArray, is CharArray,
         is String, is java.lang.Byte, is java.lang.Short, is Integer, is java.lang.Long,
         is java.lang.Float, is java.lang.Double, is java.lang.Boolean, is Character ->
-          Value(name, value)
+          Value(value)
         is Class<*> ->
-          TypeValue(name, value.asName())
+          TypeValue(value.asName())
         is Enum<*> ->
-          EnumValue(name, value.javaClass.asName(), value.name)
+          EnumValue(value.javaClass.asName(), value.name)
         is Array<*> ->
-          Value(name, value.map { handleAnnotationValue(name, it!!) }.toTypedArray())
+          ArrayValue(value.map { handleAnnotationValue(it!!) })
+        is Annotation ->
+          NestedAnnotationValue(value.asEAnnotation())
         else -> throw IllegalArgumentException("Unsupported value type: $value")
       }
     }
@@ -87,7 +88,7 @@ class ReflectClassAccessor(
 
     val path = clazz.name.replace('.', '/') + ".class"
 
-    return loader.getResourceAsStream(path)?.readAllBytes()
+    return loader.getResourceAsStream(path)?.readBytes()
            ?: throw IllegalArgumentException("Class $clazz have no bytecode found.")
   }
 

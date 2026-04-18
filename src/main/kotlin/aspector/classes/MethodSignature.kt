@@ -6,21 +6,21 @@ data class MethodSignature(
   val returnType: ClassName,
 ){
   companion object{
-    private val namedSignatureMatcher = Regex("^[^.;()]+\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
-    private val signatureMatcher = Regex("^\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
+    private val namedDescriptorMatcher = Regex("^[^.;()]+\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
+    private val descriptorMatcher = Regex("^\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
 
-    fun parse(methodName: String, signature: String): MethodSignature{
-      if (!signatureMatcher.matches(signature))
-        throw IllegalArgumentException("Invalid signature string: $signature")
+    fun parse(methodName: String, descriptor: String): MethodSignature{
+      if (!descriptorMatcher.matches(descriptor))
+        throw IllegalArgumentException("Invalid signature string: $descriptor")
       if (methodName.contains("(") || methodName.contains(")") || methodName.contains(";"))
         throw IllegalArgumentException("Invalid method name: $methodName")
 
-      return parse(methodName + signature)
+      return parse(methodName + descriptor)
     }
 
-    fun parse(signature: String): MethodSignature{
-      if (!namedSignatureMatcher.matches(signature))
-        throw IllegalArgumentException("Invalid signature string: $signature")
+    fun parse(descriptor: String): MethodSignature{
+      if (!namedDescriptorMatcher.matches(descriptor))
+        throw IllegalArgumentException("Invalid signature string: $descriptor")
 
       val builder = StringBuilder()
 
@@ -29,7 +29,7 @@ data class MethodSignature(
       val paramTypes = mutableListOf<ClassName>()
       var returnType: ClassName? = null
 
-      signature.forEach { c ->
+      descriptor.forEach { c ->
         when(c){
           '(' -> {
             name = builder.toString()

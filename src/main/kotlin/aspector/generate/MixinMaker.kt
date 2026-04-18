@@ -26,4 +26,8 @@ class MixinMaker(
   ): Class<*> {
     TODO("Not yet implemented")
   }
+
+  override fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>) {
+    TODO("Not yet implemented")
+  }
 }

@@ -8,5 +8,5 @@ abstract class ClassElement(
 ){
   @Suppress("UNCHECKED_CAST")
   fun getAnnotation(annoTypeName: ClassName) =
-    annotations.find { it.annotationType == annoTypeName }
+    annotations.find { it.type == annoTypeName }
 }

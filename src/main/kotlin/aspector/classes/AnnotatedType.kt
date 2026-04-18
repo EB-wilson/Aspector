@@ -6,5 +6,5 @@ class AnnotatedType<T : Any>(
 ) {
   @Suppress("UNCHECKED_CAST")
   fun getAnnotation(annoTypeName: ClassName) =
-    annotations.find { it.annotationType == annoTypeName }
+    annotations.find { it.type == annoTypeName }
 }

@@ -1,7 +1,7 @@
 package aspector.classes
 
 open class EAnnotation(
-  val annotationType: ClassName,
+  val type: ClassName,
   private val values: Map<String, AnnotationValue<*, *>>
 ) {
   @Suppress("UNCHECKED_CAST")

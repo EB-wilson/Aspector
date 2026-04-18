@@ -90,13 +90,13 @@ class Aspector(
 
     // Check stub, super class must be Stub
     if (aspectDecl.annotatedSuperClass?.let {
-      it.type.name != ClassName.jObject && !it.annotations.any{ a -> a.annotationType == Stub::class.asName() }
+      it.type.name != ClassName.jObject && !it.annotations.any{ a -> a.type == Stub::class.asName() }
     } ?: false) throw AspectDeclaringException("Super class of aspect implement must be annotated by @Stub")
   }
 
   private fun findStub(aspectImpl: ClassDecl<*>) =
     (listOfNotNull(aspectImpl.annotatedSuperClass) + aspectImpl.annotatedInterfaces)
-      .filter { it.annotations.any { a -> a.annotationType == Stub::class.asName() } }
+      .filter { it.annotations.any { a -> a.type == Stub::class.asName() } }
       .map { it.type }
       .toSet()
 }

@@ -28,7 +28,7 @@ abstract class ClassDecl<T: Any>(
 
   @Suppress("UNCHECKED_CAST")
   fun getAnnotation(annoTypeName: ClassName) =
-    annotations.find { it.annotationType == annoTypeName }
+    annotations.find { it.type == annoTypeName }
 
   val isPublic get() = Modifier.isPublic(flags)
   val isProtected get() = Modifier.isProtected(flags)

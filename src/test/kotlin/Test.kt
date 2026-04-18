@@ -7,7 +7,7 @@ import aspector.classes.BytecodeClassLoader
 import aspector.generate.AspectMaker
 import kotlin.reflect.KClass
 
-@Target(AnnotationTarget.FUNCTION)
+@Target(AnnotationTarget.TYPE)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class TestAnno(
   val str: String,
@@ -30,15 +30,16 @@ class LoaderAspect:
     @Stub AccessStub,
     Aspect
 {
-  @TestAnno(
-    "test text",
-    Aspect::class,
-    [Aspect::class, AccessStub::class],
-    [Using.AFTER_RETURN, Using.OVERRIDE],
-    [12, 25, 74, 1]
-  )
   @AspectElement(Using.OVERRIDE)
-  override fun definePackage(c: Class<*>): Package{
+  override fun definePackage(
+    c: @TestAnno(
+      "test text",
+      Aspect::class,
+      [Aspect::class, AccessStub::class],
+      [Using.AFTER_RETURN, Using.OVERRIDE],
+      [12, 25, 74, 1]
+    ) Class<*>
+  ): Package{
     println("definePackage: $c")
     return super<AccessStub>.definePackage(c)
   }

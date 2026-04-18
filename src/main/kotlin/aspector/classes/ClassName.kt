@@ -52,9 +52,13 @@ class ClassName private constructor(
               else "L$internalName;"
     }
 
+    @JvmStatic
     fun byClass(clazz: Class<*>) = ClassName(Type.getDescriptor(clazz))
+    @JvmStatic
     fun byDescriptor(descriptor: String) = ClassName(descriptor)
+    @JvmStatic
     fun byInternalName(internalName: String) = ClassName(internalToDesc(internalName))
+    @JvmStatic
     fun byName(name: String) = ClassName(internalToDesc(name.replace(".", "/")))
   }
 
