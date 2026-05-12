@@ -11,7 +11,7 @@ open class EConstructor<T: Any>(
   flag,
   annotations,
 ){
-  val descriptor by lazy {
+  val signature by lazy {
     MethodSignature(
       "<init>",
       parameterTypes.map { it.name },

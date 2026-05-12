@@ -1,20 +1,21 @@
 package aspector.generate
 
 import aspector.AspectDecl
+import aspector.Using.*
 import aspector.classes.BytecodeLoader
 import aspector.classes.ClassAccessor
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
-import aspector.classes.ClassElement
 import aspector.classes.EAspectMethod
 import aspector.classes.EConstructor
 import aspector.classes.EField
 import aspector.classes.EMethod
+import aspector.classes.MethodSignature
 import kotlin.jvm.Throws
 import kotlin.reflect.KClass
 
 abstract class ClassMaker(
-  val bytesAccessor: ClassAccessor
+  val classAccessor: ClassAccessor
 ) {
   companion object {
     @JvmStatic fun KClass<*>.asName() = ClassName.byClass(java)
@@ -22,15 +23,15 @@ abstract class ClassMaker(
   }
 
   fun <T: Any> makeClass(
-    aspectDecl: ClassDecl<*>,
     targetClass: ClassDecl<T>,
+    vararg aspectDecl: ClassDecl<*>,
     scope: AspectBuilder.() -> Unit
   ): AspectResult<T> {
     val builder = AspectBuilder(
-      generateClassName(aspectDecl, targetClass),
+      generateClassName(targetClass, *aspectDecl),
       targetClass.flags,
       targetClass.name,
-      aspectDecl.name
+      aspectDecl.map { it.name }
     )
     builder.scope()
 
@@ -38,8 +39,8 @@ abstract class ClassMaker(
   }
 
   abstract fun generateClassName(
-    aspectImpl: ClassDecl<*>,
-    targetClass: ClassDecl<*>
+    targetClass: ClassDecl<*>,
+    vararg aspectDecl: ClassDecl<*>
   ): ClassName
 
   abstract fun generateBytecode(
@@ -53,7 +54,7 @@ abstract class ClassMaker(
   ): Class<*>
 
   @Throws(Throwable::class)
-  abstract fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>)
+  abstract fun checkAspectable(sourceClass: ClassDecl<*>, aspectImpl: List<ClassDecl<*>>)
 
   @Suppress("UNCHECKED_CAST")
   inner class AspectResult<T: Any>(
@@ -70,29 +71,110 @@ abstract class ClassMaker(
     ) as Class<T>
   }
 
+  sealed class MethodUsing(
+    val signature: MethodSignature,
+    val layer: Int,
+  ) {
+    abstract fun addElement(method: EAspectMethod)
+    abstract fun getElements(): List<EAspectMethod>
+  }
+
+  class SingleUsing(
+    signature: MethodSignature,
+    layer: Int,
+    val method: EAspectMethod
+  ): MethodUsing(signature, layer) {
+    private val methods = mutableListOf<EAspectMethod>()
+
+    val using = method.using
+    val conflict get() = methods.size > 1
+
+    init {
+      when(using) {
+        OVERRIDE, REPLACE -> {}
+        else -> throw IllegalAspectDeclaringException("Illegal using. method: ${method.signature}")
+      }
+    }
+
+    override fun addElement(method: EAspectMethod) {
+      methods.add(method)
+    }
+
+    override fun getElements(): List<EAspectMethod> = methods
+  }
+
+  class MixinUsing(
+    signature: MethodSignature,
+    layer: Int,
+  ): MethodUsing(signature, layer) {
+    private val methods = mutableListOf<EAspectMethod>()
+
+    override fun addElement(method: EAspectMethod) {
+      when(method.using) {
+        BEFORE, BEFORE_RETURN, AFTER, AFTER_RETURN -> {}
+        else -> throw IllegalAspectDeclaringException("Aspect element with signature ${method.signature} was declared with ${method.using.name} using, but the layer was mixin.")
+      }
+
+      methods.add(method)
+    }
+
+    override fun getElements(): List<EAspectMethod> = methods
+  }
+
   class AspectBuilder (
     val className: ClassName,
     val accessFlags: Int,
     val superClass: ClassName,
-    val aspectDecl: ClassName,
+    val aspectDecl: List<ClassName>,
   ) {
-    val stubTypes: MutableList<ClassName> = mutableListOf()
+    val stubAttaches: MutableMap<ClassName, ClassName> = mutableMapOf()
     val interfaces: MutableList<ClassName> = mutableListOf()
 
-    val aspectElements: MutableList<EAspectMethod> = mutableListOf()
-    val implElements: MutableList<ClassElement> = mutableListOf()
-    val superElements: MutableList<ClassElement> = mutableListOf()
+    val declFields: MutableMap<String, MutableList<EField>> = mutableMapOf()
+    val sharedFields: MutableMap<String, EField> = mutableMapOf()
+    val declMethods: MutableMap<MethodSignature, MutableList<EMethod>> = mutableMapOf()
+    val declConstructors: MutableMap<MethodSignature, MutableList<EConstructor<*>>> = mutableMapOf()
 
-    fun registerStubSpec(stub: ClassDecl<*>) { stubTypes.add(stub.name) }
-    fun registerInterfaces(inter: ClassDecl<*>) { interfaces.add(inter.name) }
-    fun registerAspectMethod(method: EAspectMethod) { aspectElements.add(method) }
+    val aspectMethods: MutableMap<MethodSignature, MutableList<MethodUsing>> = mutableMapOf()
 
-    fun registerImplField(field: EField) = implElements.add(field)
-    fun registerImplMethod(method: EMethod) = implElements.add(method)
-    fun registerImplConstructor(constructor: EConstructor<*>) = implElements.add(constructor)
+    fun registerStubSpec(stub: ClassName, attached: ClassName) {
+      stubAttaches[stub] = attached
+    }
+    fun registerInterfaces(inter: ClassName) { interfaces.add(inter) }
 
-    fun registerSuperField(field: EField) = superElements.add(field)
-    fun registerSuperMethod(method: EMethod) = superElements.add(method)
-    fun registerSuperConstructor(constructor: EConstructor<*>) = superElements.add(constructor)
+    fun registerDeclField(field: EField) {
+      declFields.getOrPut(field.name) { mutableListOf() }
+        .add(field)
+    }
+    fun registerSharedField(field: EField) {
+      sharedFields.putIfAbsent(field.name, field)
+    }
+
+    fun registerDeclMethod(method: EMethod) {
+      declMethods
+        .getOrPut(method.signature) { mutableListOf() }
+        .add(method)
+    }
+    fun registerDeclConstructor(constructor: EConstructor<*>) {
+      declConstructors
+        .getOrPut(constructor.signature) { mutableListOf() }
+        .add(constructor)
+    }
+
+    fun registerAspectMethod(layer: Int, method: EAspectMethod) {
+      aspectMethods
+        .getOrPut(method.signature) { mutableListOf() }
+        .also { usings ->
+          var using = usings.find { it.layer == layer }
+          if (using == null) {
+            using = when (method.using) {
+              OVERRIDE, REPLACE -> SingleUsing(method.signature, layer, method)
+              BEFORE, BEFORE_RETURN, AFTER, AFTER_RETURN -> MixinUsing(method.signature, layer)
+            }
+            usings.add(using)
+          }
+          using.addElement(method)
+        }
+    }
   }
 }

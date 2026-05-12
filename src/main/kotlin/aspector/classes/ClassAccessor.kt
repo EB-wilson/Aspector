@@ -4,6 +4,14 @@ import java.lang.reflect.Modifier
 
 interface ClassAccessor {
   companion object {
+    private val sharedClassByte = mutableMapOf<ClassName, ByteArray>()
+
+    fun registerClassByte(className: ClassName, bytecode: ByteArray) {
+      sharedClassByte[className] = bytecode
+    }
+
+    fun getSharedClassByte(className: ClassName): ByteArray? = sharedClassByte[className]
+
     val voidDecl: ClassDecl<Void> = PrimitiveClassDecl(Void.TYPE)
     val byteDecl: ClassDecl<Byte> = PrimitiveClassDecl(Byte::class.java)
     val shortDecl: ClassDecl<Short> = PrimitiveClassDecl(Short::class.java)

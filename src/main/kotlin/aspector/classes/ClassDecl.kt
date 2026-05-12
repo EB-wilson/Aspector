@@ -40,5 +40,5 @@ abstract class ClassDecl<T: Any>(
 
   val isPrimitive get() = name.isPrimitive
   val isArray get() = name.isArray
-  val isEnum get() = (flags and ENUM) != 0 && superClass?.name == ClassName.Companion.byClass(Enum::class.java)
+  val isEnum get() = (flags and ENUM) != 0 && superClass?.name == ClassName.byClass(Enum::class)
 }

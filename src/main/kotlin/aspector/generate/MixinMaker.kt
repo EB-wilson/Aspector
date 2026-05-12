@@ -9,11 +9,9 @@ class MixinMaker(
   classAccessor: ClassAccessor,
 ): ClassMaker(classAccessor) {
   override fun generateClassName(
-    aspectImpl: ClassDecl<*>,
     targetClass: ClassDecl<*>,
-  ): ClassName {
-    TODO("Not yet implemented")
-  }
+    vararg aspectDecl: ClassDecl<*>,
+  ): ClassName = targetClass.name
 
   override fun generateBytecode(builder: AspectBuilder): ByteArray {
     TODO("Not yet implemented")
@@ -27,7 +25,7 @@ class MixinMaker(
     TODO("Not yet implemented")
   }
 
-  override fun checkAspectable(aspectImpl: ClassDecl<*>, sourceClass: ClassDecl<*>) {
+  override fun checkAspectable(sourceClass: ClassDecl<*>, aspectImpl: List<ClassDecl<*>>) {
     TODO("Not yet implemented")
   }
 }

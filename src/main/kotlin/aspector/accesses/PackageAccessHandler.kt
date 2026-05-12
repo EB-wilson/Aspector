@@ -28,8 +28,8 @@ abstract class PackageAccessHandler(
     val name = ClassName.byName(genPackageAccessClassName(accessTarget))
 
     try {
-      return Class.forName(name.name) as Class<T>
-    } catch (e: ClassNotFoundException) {
+      return (accessTarget.classLoader?.loadClass(name.name)?: Class.forName(name.name)) as Class<T>
+    } catch (_: ClassNotFoundException) {
       val targetName = accessTarget.asName()
       val targetDecl = classAccessor.getClassDecl<T>(targetName)
 
@@ -46,8 +46,6 @@ abstract class PackageAccessHandler(
       }
 
       val bytecode = genPackageAccessClass(builder)
-
-      File("${name.simpleName}.class").outputStream().write(bytecode)
 
       return loadClass(
         name,

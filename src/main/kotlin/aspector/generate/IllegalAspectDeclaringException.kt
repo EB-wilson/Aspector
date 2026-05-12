@@ -1,5 +1,5 @@
 package aspector.generate
 
-class AspectDeclaringException(
+class IllegalAspectDeclaringException(
   message: String,
 ): Exception(message)

@@ -1,6 +1,7 @@
 package aspector.classes
 
 import org.objectweb.asm.Type
+import kotlin.reflect.KClass
 
 class ClassName private constructor(
   val descriptor: String,
@@ -16,9 +17,10 @@ class ClassName private constructor(
     val F = ClassName("F")
     val D = ClassName("D")
 
-    val jObject = byClass(Object::class.java)
-    val jString = byClass(String::class.java)
-    val jClassName = byClass(ClassName::class.java)
+    val jObject = byClass(Object::class)
+    val jString = byClass(String::class)
+    val jNothing = byClass(Nothing::class)
+    val jClassName = byClass(ClassName::class)
 
     private fun descToInternal(signatureName: String): String = when(signatureName.first()) {
       'V' -> "void"
@@ -52,6 +54,8 @@ class ClassName private constructor(
               else "L$internalName;"
     }
 
+    @JvmStatic
+    fun byClass(clazz: KClass<*>) = byClass(clazz.java)
     @JvmStatic
     fun byClass(clazz: Class<*>) = ClassName(Type.getDescriptor(clazz))
     @JvmStatic

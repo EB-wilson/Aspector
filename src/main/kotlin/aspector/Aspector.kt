@@ -1,13 +1,17 @@
 package aspector
 
+import aspector.annotations.AspectExtends
 import aspector.annotations.AspectElement
+import aspector.annotations.Shared
 import aspector.annotations.Stub
-import aspector.generate.AspectDeclaringException
+import aspector.classes.ArrayValue
+import aspector.generate.IllegalAspectDeclaringException
 import aspector.generate.ClassMaker
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
 import aspector.classes.EAspectMethod
 import aspector.classes.EnumValue
+import aspector.classes.TypeValue
 import aspector.generate.ClassMaker.Companion.asName
 import java.lang.reflect.Modifier
 
@@ -15,88 +19,137 @@ class Aspector(
   private val classMaker: ClassMaker,
 ) {
   fun <T: Any> applyAspect(
-    aspectDeclare: ClassDecl<*>,
     targetClass: ClassDecl<T>,
+    vararg aspectDeclare: ClassDecl<*>,
   ): AspectDecl<T> {
-    checkAspectDeclare(aspectDeclare, targetClass)
-    classMaker.checkAspectable(aspectDeclare, targetClass)
+    val aspectLayers = mutableListOf<MutableList<ClassDecl<*>>>()
 
-    val aspectDecl = classMaker.makeClass(aspectDeclare, targetClass) {
-      val stub = findStub(aspectDeclare)
+    val queue = aspectDeclare.map { it to 0 }.toMutableList()
+    val solved = mutableSetOf<ClassDecl<*>>()
+
+    while (queue.isNotEmpty()) {
+      val curr = queue.removeAt(0)
+      val clazz = curr.first
+      val depth = curr.second
+
+      if (solved.add(clazz)) {
+        while (aspectLayers.size <= depth) aspectLayers.add(mutableListOf()) // may use 'if'?
+        aspectLayers[depth].add(clazz)
+
+        val extensions = clazz.getAnnotation(ClassName.byClass(AspectExtends::class))
+          ?.getValue<ArrayValue<Class<*>, TypeValue>>("extends")
+          ?.rawValue
+          ?.map { it.rawValue } ?: emptyList()
+
+        extensions.forEach {
+          val classDecl = classMaker.classAccessor.getClassDecl<Any>(it)
+          queue.add(classDecl to depth + 1)
+        }
+      }
+    }
+
+    val flat = aspectLayers.flatMap { it }
+    checkAspectDeclare(targetClass, flat)
+    classMaker.checkAspectable(targetClass, flat)
+
+    val aspectDecl = classMaker.makeClass(targetClass, *flat.toTypedArray()) {
+      val stub = flat.flatMap { i ->
+        (listOfNotNull(i.annotatedSuperClass) + i.annotatedInterfaces)
+          .mapNotNull { it.annotations.find { a -> a.type == Stub::class.asName() }?.let { stub -> it.type to stub } }
+      }.toSet()
+      val nonStubInterfaces = flat.flatMap { i ->
+        i.annotatedInterfaces
+          .filter { it.getAnnotation(Stub::class.asName()) == null }
+          .map { it.type }
+      }.toSet()
 
       // Register Stub spec
-      stub.forEach {
-        registerStubSpec(it)
+      stub.forEach { (decl, anno) ->
+        registerStubSpec(
+          decl.name,
+          anno.getValue<TypeValue>("attacheTo")!!.rawValue
+        )
       }
 
-      val nonStubInterfaces = aspectDeclare.annotatedInterfaces
-        .filter { it.getAnnotation(Stub::class.asName()) == null }
-        .map { it.type }
       // Register implement interfaces
       nonStubInterfaces.forEach {
-        registerInterfaces(it)
+        registerInterfaces(it.name)
       }
 
-      // Register aspect methods
-      aspectDeclare.methods
-        .filter { !Modifier.isPrivate(it.flags) && !Modifier.isStatic(it.flags) }
-        .map {
-          it to (it.getAnnotation(AspectElement::class.asName())
-            ?.getValue<EnumValue<Using>>("using")
-            ?.value
-            ?: Using.OVERRIDE)
+      flat.forEach { decl ->
+        // Register fields
+        decl.fields
+          .forEach { field ->
+            if (field.getAnnotation(Shared::class.asName()) != null) {
+              registerSharedField(field)
+            }
+            else registerDeclField(field)
+          }
+
+        // Register non-aspect methods
+        decl.methods
+          .filter { method ->
+            Modifier.isPrivate(method.flags)
+            || Modifier.isStatic(method.flags)
+          }
+          .forEach { method -> registerDeclMethod(method) }
+
+        // Register constructor
+        decl.constructors
+          .forEach { constructor -> registerDeclConstructor(constructor) }
+      }
+
+      aspectLayers.forEachIndexed { layer, decls ->
+        decls.forEach { decl ->
+          // Register aspect methods
+          decl.methods
+            .filter {
+              !Modifier.isPrivate(it.flags)
+              && !Modifier.isStatic(it.flags)
+            }
+            .map {
+              it to (it.getAnnotation(AspectElement::class.asName())
+                       ?.getValue<EnumValue<Using>>("using")
+                       ?.value
+                     ?: Using.OVERRIDE)
+            }
+            .forEach { (method, using) ->
+              registerAspectMethod(
+                layer,
+                EAspectMethod(
+                  method.declaring,
+                  method.name,
+                  method.parameters,
+                  method.annotatedReturnType,
+                  method.flags,
+                  using,
+                  method.annotations
+                )
+              )
+            }
         }
-        .forEach { (method, using) ->
-          registerAspectMethod(
-            EAspectMethod(
-              method.declaring,
-              method.name,
-              method.parameters,
-              method.annotatedReturnType,
-              method.flags,
-              using,
-              method.annotations
-            )
-          )
-        }
-
-      // Register fields
-      aspectDeclare.fields
-        .forEach { field -> registerImplField(field) }
-
-      // Register non-aspect methods
-      aspectDeclare.methods
-        .filter { method -> Modifier.isPrivate(method.flags) || Modifier.isStatic(method.flags) }
-        .forEach { method -> registerImplMethod(method) }
-
-      // Register constructor
-      aspectDeclare.constructors
-        .forEach { constructor -> registerImplConstructor(constructor) }
+      }
     }
 
     return aspectDecl
   }
 
-  private fun checkAspectDeclare(aspectDecl: ClassDecl<*>, targetClass: ClassDecl<*>) {
+  private fun checkAspectDeclare(targetClass: ClassDecl<*>, aspectDecl: List<ClassDecl<*>>) {
     // Check source type
     if (targetClass.let {
       it.isPrimitive || it.isEnum || it.isArray || it.isInterface
-    }) throw IllegalArgumentException("Source class ${aspectDecl.name} must be a normal class")
+    }) throw IllegalArgumentException("Source class ${targetClass.name} must be a normal class")
 
-    // Check implement type
-    if (aspectDecl.let {
-      it.isPrimitive || it.isEnum || it.isArray || it.isInterface
-    }) throw IllegalArgumentException("Aspect implement class ${aspectDecl.name} must be a normal class")
+    aspectDecl.forEach { decl ->
+      // Check implement type
+      if (decl.let {
+          it.isPrimitive || it.isEnum || it.isArray || it.isInterface
+        }) throw IllegalArgumentException("Aspect implement class ${decl.name} must be a normal class")
 
-    // Check stub, super class must be Stub
-    if (aspectDecl.annotatedSuperClass?.let {
-      it.type.name != ClassName.jObject && !it.annotations.any{ a -> a.type == Stub::class.asName() }
-    } ?: false) throw AspectDeclaringException("Super class of aspect implement must be annotated by @Stub")
+      // Check stub, super class must be Stub
+      if (decl.annotatedSuperClass?.let {
+          it.type.name != ClassName.jObject && !it.annotations.any{ a -> a.type == Stub::class.asName() }
+        } ?: false) throw IllegalAspectDeclaringException("Super class of aspect implement must be annotated by @Stub")
+    }
   }
-
-  private fun findStub(aspectImpl: ClassDecl<*>) =
-    (listOfNotNull(aspectImpl.annotatedSuperClass) + aspectImpl.annotatedInterfaces)
-      .filter { it.annotations.any { a -> a.type == Stub::class.asName() } }
-      .map { it.type }
-      .toSet()
 }

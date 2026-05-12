@@ -6,7 +6,6 @@ data class MethodSignature(
   val returnType: ClassName,
 ){
   companion object{
-    private val namedDescriptorMatcher = Regex("^[^.;()]+\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
     private val descriptorMatcher = Regex("^\\(([BCDFIJSZ]|\\[+[BCDFIJSZ]|\\[*L[^;]+;)*\\)([BCDFIJSZ]|\\[+[BCDFIJSZ]|V|\\[*L[^;]+;)$")
 
     fun parse(methodName: String, descriptor: String): MethodSignature{
@@ -15,49 +14,55 @@ data class MethodSignature(
       if (methodName.contains("(") || methodName.contains(")") || methodName.contains(";"))
         throw IllegalArgumentException("Invalid method name: $methodName")
 
-      return parse(methodName + descriptor)
-    }
-
-    fun parse(descriptor: String): MethodSignature{
-      if (!namedDescriptorMatcher.matches(descriptor))
-        throw IllegalArgumentException("Invalid signature string: $descriptor")
-
-      val builder = StringBuilder()
-
-      var name = ""
-      var ret = false
       val paramTypes = mutableListOf<ClassName>()
       var returnType: ClassName? = null
 
-      descriptor.forEach { c ->
-        when(c){
-          '(' -> {
-            name = builder.toString()
-            builder.clear()
-          }
-          ';' -> {
-            builder.append(c)
+      var index = 0
+      fun readNextType(): ClassName {
+        val res = when(val c = descriptor[index]) {
+          'B' -> ClassName.B
+          'S' -> ClassName.S
+          'I' -> ClassName.I
+          'J' -> ClassName.J
+          'F' -> ClassName.F
+          'D' -> ClassName.D
+          'C' -> ClassName.C
+          'Z' -> ClassName.Z
+          'V' -> ClassName.V
+          'L' -> {
+            val nextSemicolon = descriptor.indexOf(';', index)
+            if (nextSemicolon == -1) throw IllegalArgumentException("Invalid signature string: $descriptor")
 
-            if (ret) {
-              returnType = ClassName.byDescriptor(builder.toString())
-              builder.clear()
-            }
-            else {
-              paramTypes.add(ClassName.byDescriptor(builder.toString()))
-              builder.clear()
-            }
+            val className = ClassName.byDescriptor(descriptor.substring(index, nextSemicolon + 1))
+            index = nextSemicolon
+            className
           }
+          else -> throw IllegalArgumentException("Invalid signature string: $c")
+        }
+
+        index++
+        return res
+      }
+
+      while (index < descriptor.length) {
+        val c = descriptor[index]
+        when(c) {
+          '(' -> index++
           ')' -> {
-            builder.clear()
-            ret = true
+            index++
+            returnType = readNextType()
           }
-          else -> builder.append(c)
+          else -> {
+            paramTypes.add(readNextType())
+          }
         }
       }
 
-      returnType = returnType?: ClassName.byDescriptor(builder.toString())
+      if (returnType == null)
+        throw IllegalArgumentException("Invalid signature string: $descriptor")
+
       return MethodSignature(
-        name,
+        methodName,
         paramTypes,
         returnType
       )

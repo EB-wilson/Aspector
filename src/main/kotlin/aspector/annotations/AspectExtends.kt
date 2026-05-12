@@ -2,8 +2,8 @@ package aspector.annotations
 
 import kotlin.reflect.KClass
 
+@Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-@Target(AnnotationTarget.TYPE)
-annotation class Stub(
-  val attacheTo: KClass<*> = Nothing::class,
+annotation class AspectExtends(
+  vararg val extends: KClass<*>,
 )

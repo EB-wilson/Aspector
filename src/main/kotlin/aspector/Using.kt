@@ -1,9 +1,12 @@
 package aspector
 
 enum class Using {
+  OVERRIDE,
+  REPLACE,
+
+  //MIXIN
   BEFORE,
   BEFORE_RETURN,
-  OVERRIDE,
   AFTER,
-  AFTER_RETURN
+  AFTER_RETURN,
 }

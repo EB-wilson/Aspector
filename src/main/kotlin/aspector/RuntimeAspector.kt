@@ -56,8 +56,8 @@ object RuntimeAspector {
       aspectDeclare: Class<*>,
       targetClass: Class<T>,
     ) = DeclDelegate<T>(aspector.applyAspect(
-      accessor.getClassDecl<T>(aspectDeclare.asName()),
-      accessor.getClassDecl(targetClass.asName())
+      accessor.getClassDecl(targetClass.asName()),
+      accessor.getClassDecl<T>(aspectDeclare.asName())
     ))
 
     fun <T: Any, R> Class<*>.apply(
@@ -74,8 +74,8 @@ object RuntimeAspector {
     infix fun <T: Any> Class<*>.applyOn(
       targetClass: Class<T>
     ): DeclDelegate<T> = aspector.applyAspect(
-      accessor.getClassDecl<Any>(asName()),
-      accessor.getClassDecl<T>(targetClass.asName())
+      accessor.getClassDecl<T>(targetClass.asName()),
+      accessor.getClassDecl<Any>(asName())
     ).let { DeclDelegate(it) }
 
     infix fun <T : Any> DeclDelegate<T>.with(loader: BytecodeLoader) = load(loader)

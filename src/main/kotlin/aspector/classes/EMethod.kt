@@ -13,7 +13,7 @@ open class EMethod(
   accessFlag,
   annotations
 ){
-  val descriptor by lazy {
+  val signature by lazy {
     MethodSignature(
       name,
       parameterTypes.map { it.name },

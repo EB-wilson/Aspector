@@ -1,10 +1,12 @@
 import aspector.RuntimeAspector
 import aspector.Using
 import aspector.accesses.UnsafePackageAccessHandler
-import aspector.annotations.AspectElement
+import aspector.annotations.AspectExtends
+import aspector.annotations.Shared
 import aspector.annotations.Stub
 import aspector.classes.BytecodeClassLoader
 import aspector.generate.AspectMaker
+import java.io.File
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.TYPE)
@@ -25,23 +27,54 @@ interface AccessStub {
   fun definePackage(c: Class<*>): Package { TODO() }
 }
 
-class LoaderAspect:
+class Base1:
     @Stub ClassLoader(),
     @Stub AccessStub,
     Aspect
 {
-  @AspectElement(Using.OVERRIDE)
-  override fun definePackage(
-    c: @TestAnno(
-      "test text",
-      Aspect::class,
-      [Aspect::class, AccessStub::class],
-      [Using.AFTER_RETURN, Using.OVERRIDE],
-      [12, 25, 74, 1]
-    ) Class<*>
-  ): Package{
-    println("definePackage: $c")
+  @Shared var called = 5
+
+  override fun definePackage(c: Class<*>): Package {
+    println("definePackage with base1: $c")
+    println("called: ${called++}")
     return super<AccessStub>.definePackage(c)
+  }
+}
+
+class Base2:
+    @Stub ClassLoader(),
+    @Stub AccessStub,
+    Aspect
+{
+  @Shared var called = 5
+
+  override fun definePackage(c: Class<*>): Package {
+    println("definePackage with base2: $c")
+    println("called: ${called++}")
+    return super<AccessStub>.definePackage(c)
+  }
+}
+
+interface B1 { fun definePackage(c: Class<*>): Package = TODO() }
+interface B2 { fun definePackage(c: Class<*>): Package = TODO() }
+
+@AspectExtends(Base1::class, Base2::class)
+class LoaderAspect:
+    @Stub ClassLoader(),
+    @Stub AccessStub,
+    @Stub(Base1::class) B1,
+    @Stub(Base2::class) B2
+{
+  @Shared var called = 5
+  override fun definePackage(c: Class<*>): Package {
+    print()
+
+    super<B1>.definePackage(c)
+    return super<B2>.definePackage(c)
+  }
+
+  private fun print(){
+    println("Private method")
   }
 }
 
@@ -53,10 +86,16 @@ fun main() {
     UnsafePackageAccessHandler.factory()
   ){
     use(loader)
-    val inst = LoaderAspect::class
+    val aspectClass = LoaderAspect::class
       .applyOn(ClassLoader::class.open())
-      .instance()
 
+    File(aspectClass.className.simpleName + ".class")
+      .also {
+        it.outputStream().write(aspectClass.bytecode)
+      }
+
+
+    val inst = aspectClass.instance()
     val instAsp = inst as Aspect
     instAsp.definePackage(Object::class.java)
   }

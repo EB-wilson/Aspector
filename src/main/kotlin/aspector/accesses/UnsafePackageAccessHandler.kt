@@ -94,9 +94,9 @@ class UnsafePackageAccessHandler private constructor(
 
     methods.forEach {
       val methodVisitor = classWriter.visitMethod(
-        it.flags and (Opcodes.ACC_PUBLIC or Opcodes.ACC_PROTECTED).inv() or Opcodes.ACC_PROTECTED,
+        it.flags or Opcodes.ACC_PUBLIC,
         it.name,
-        it.descriptor.jvmDescriptor(),
+        it.signature.jvmDescriptor(),
         null,
         null,
       )
@@ -104,7 +104,7 @@ class UnsafePackageAccessHandler private constructor(
 
       methodVisitor.invokeMethod(
         targetName,
-        it.descriptor,
+        it.signature,
         false
       )
       methodVisitor.returnValue(it)
@@ -115,9 +115,9 @@ class UnsafePackageAccessHandler private constructor(
 
     constructors.forEach {
       val methodVisitor = classWriter.visitMethod(
-        it.flags and (Opcodes.ACC_PUBLIC or Opcodes.ACC_PROTECTED).inv() or Opcodes.ACC_PROTECTED,
+        it.flags and Opcodes.ACC_PROTECTED.inv() or Opcodes.ACC_PUBLIC,
         "<init>",
-        it.descriptor.jvmDescriptor(),
+        it.signature.jvmDescriptor(),
         null,
         null
       )
@@ -125,7 +125,7 @@ class UnsafePackageAccessHandler private constructor(
 
       methodVisitor.invokeMethod(
         targetName,
-        it.descriptor,
+        it.signature,
         false
       )
       methodVisitor.visitInsn(Opcodes.RETURN)
@@ -139,7 +139,7 @@ class UnsafePackageAccessHandler private constructor(
   }
 
   private fun MethodVisitor.returnValue(method: EMethod) {
-    when (method.descriptor.returnType) {
+    when (method.signature.returnType) {
       V -> visitInsn(Opcodes.RETURN)
       B, S, I, Z, C -> visitInsn(Opcodes.IRETURN)
       J -> visitInsn(Opcodes.LRETURN)
@@ -176,6 +176,9 @@ class UnsafePackageAccessHandler private constructor(
     accessTarget: Class<*>,
   ): Class<*> {
     val accessTargetDomain = accessTarget.protectionDomain
+
+    ClassAccessor.registerClassByte(className, bytecode)
+
     return unsafeDefineClass.invoke(
       unsafeInstance,
       className.name,

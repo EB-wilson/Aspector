@@ -1,6 +1,8 @@
 package aspector.classes
 
 import aspector.generate.ClassMaker.Companion.asName
+import jdk.internal.loader.ClassLoaders
+import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import kotlin.reflect.KClass
@@ -17,7 +19,11 @@ class ReflectClassAccessor(
           && it.name != "toString" && it.name != "hashCode" && it.name != "annotationType"
         }
         .map { method ->
-          method.name to handleAnnotationValue(method.invoke(this))
+          method.name to handleAnnotationValue(try {
+            method.invoke(this)
+          } catch (e: InvocationTargetException) {
+            method.defaultValue?: throw IllegalStateException("Failed to invoke annotation method ${method.name} and no default value found.", e)
+          })
         }
 
       return EAnnotation(
@@ -84,11 +90,12 @@ class ReflectClassAccessor(
 
   override fun getBytes(className: ClassName): ByteArray {
     val clazz = loadClass(className)
-    val loader = clazz.classLoader
+    val loader = clazz.classLoader ?: ClassLoader.getSystemClassLoader()
 
     val path = clazz.name.replace('.', '/') + ".class"
 
     return loader.getResourceAsStream(path)?.readBytes()
+           ?: ClassAccessor.getSharedClassByte(className)
            ?: throw IllegalArgumentException("Class $clazz have no bytecode found.")
   }
 
