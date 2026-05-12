@@ -1,7 +1,6 @@
 package aspector.classes
 
-import aspector.generate.ClassMaker.Companion.asName
-import jdk.internal.loader.ClassLoaders
+import aspector.generate.AspectFactory.Companion.asName
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType

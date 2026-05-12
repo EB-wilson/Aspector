@@ -5,12 +5,12 @@ import aspector.classes.ClassAccessor
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
 
-class MixinMaker(
+class MixinAspectFactory(
   classAccessor: ClassAccessor,
-): ClassMaker(classAccessor) {
+): AspectFactory(classAccessor) {
   override fun generateClassName(
     targetClass: ClassDecl<*>,
-    vararg aspectDecl: ClassDecl<*>,
+    vararg aspectClasses: ClassDecl<*>,
   ): ClassName = targetClass.name
 
   override fun generateBytecode(builder: AspectBuilder): ByteArray {
@@ -25,7 +25,7 @@ class MixinMaker(
     TODO("Not yet implemented")
   }
 
-  override fun checkAspectable(sourceClass: ClassDecl<*>, aspectImpl: List<ClassDecl<*>>) {
+  override fun checkAspectable(sourceClass: ClassDecl<*>, aspectClasses: List<ClassDecl<*>>) {
     TODO("Not yet implemented")
   }
 }

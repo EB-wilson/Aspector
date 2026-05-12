@@ -1,6 +1,6 @@
 package aspector.classes
 
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory.Companion.asName
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type

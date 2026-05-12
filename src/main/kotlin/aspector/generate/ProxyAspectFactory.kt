@@ -20,30 +20,29 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.InsnList
 import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
-import java.io.File
 import java.lang.reflect.Modifier
 
-class AspectMaker private constructor(
+class ProxyAspectFactory private constructor(
   classAccessor: ClassAccessor,
-): ClassMaker(classAccessor){
+): AspectFactory(classAccessor){
   companion object {
     @JvmStatic
     fun create(
       accessor: ClassAccessor
-    ): AspectMaker = AspectMaker(accessor)
+    ): ProxyAspectFactory = ProxyAspectFactory(accessor)
 
     @JvmStatic
-    fun factory(): (ClassAccessor) -> ClassMaker = { AspectMaker(it) }
+    fun factory(): (ClassAccessor) -> AspectFactory = { ProxyAspectFactory(it) }
   }
 
   override fun generateClassName(
     targetClass: ClassDecl<*>,
-    vararg aspectDecl: ClassDecl<*>,
+    vararg aspectClasses: ClassDecl<*>,
   ) = ClassName.byName(
     "${targetClass.name.name.let {
       if (it.startsWith("java.")) it.replace("java.", "javas.")
       else it
-    } }$${aspectDecl.map { it.name }.hashCode().toHexString()}"
+    } }$${aspectClasses.map { it.name }.hashCode().toHexString()}"
   )
 
   override fun generateBytecode(builder: AspectBuilder): ByteArray {
@@ -372,8 +371,6 @@ class AspectMaker private constructor(
   ): Class<*> {
     val name = className.name
 
-    File("${className.simpleName}.class").outputStream().write(bytecode)
-
     loader.declareClass(
       name,
       bytecode
@@ -381,7 +378,7 @@ class AspectMaker private constructor(
     return loader.loadClass(name)
   }
 
-  override fun checkAspectable(sourceClass: ClassDecl<*>, aspectImpl: List<ClassDecl<*>>) {
+  override fun checkAspectable(sourceClass: ClassDecl<*>, aspectClasses: List<ClassDecl<*>>) {
     // Check sourceClass accessible
     if (sourceClass.flags.let {
       Modifier.isFinal(it) || Modifier.isPrivate(it)

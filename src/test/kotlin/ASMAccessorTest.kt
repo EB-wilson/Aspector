@@ -1,5 +1,5 @@
 import aspector.classes.ASMClassAccessor
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory.Companion.asName
 
 class ASMAccessorTest {
   companion object {

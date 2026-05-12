@@ -5,8 +5,7 @@ import aspector.annotations.AspectExtends
 import aspector.annotations.Shared
 import aspector.annotations.Stub
 import aspector.classes.BytecodeClassLoader
-import aspector.generate.AspectMaker
-import java.io.File
+import aspector.generate.ProxyAspectFactory
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.TYPE)
@@ -66,6 +65,7 @@ class LoaderAspect:
     @Stub(Base2::class) B2
 {
   @Shared var called = 5
+
   override fun definePackage(c: Class<*>): Package {
     print()
 
@@ -82,20 +82,34 @@ fun main() {
   val loader = BytecodeClassLoader(RuntimeAspector::class.java.classLoader)
 
   RuntimeAspector.withMaker(
-    AspectMaker.factory(),
+    ProxyAspectFactory.factory(),
     UnsafePackageAccessHandler.factory()
   ){
     use(loader)
-    val aspectClass = LoaderAspect::class
-      .applyOn(ClassLoader::class.open())
+    val aspectDecl = ClassLoader::class.open() apply (
+        @AspectExtends(Base1::class, Base2::class)
+        object:
+          @Stub ClassLoader(),
+          @Stub AccessStub,
+          @Stub(Base1::class) B1,
+          @Stub(Base2::class) B2
+        {
+          @Shared var called = 5
 
-    File(aspectClass.className.simpleName + ".class")
-      .also {
-        it.outputStream().write(aspectClass.bytecode)
-      }
+          override fun definePackage(c: Class<*>): Package {
+            print()
 
+            super<B1>.definePackage(c)
+            return super<B2>.definePackage(c)
+          }
 
-    val inst = aspectClass.instance()
+          private fun print(){
+            println("Private method")
+          }
+        }
+    )::class
+
+    val inst = aspectDecl.instance()
     val instAsp = inst as Aspect
     instAsp.definePackage(Object::class.java)
   }

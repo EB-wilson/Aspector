@@ -6,25 +6,25 @@ import aspector.annotations.Shared
 import aspector.annotations.Stub
 import aspector.classes.ArrayValue
 import aspector.generate.IllegalAspectDeclaringException
-import aspector.generate.ClassMaker
+import aspector.generate.AspectFactory
 import aspector.classes.ClassDecl
 import aspector.classes.ClassName
 import aspector.classes.EAspectMethod
 import aspector.classes.EnumValue
 import aspector.classes.TypeValue
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory.Companion.asName
 import java.lang.reflect.Modifier
 
 class Aspector(
-  private val classMaker: ClassMaker,
+  private val aspectFactory: AspectFactory,
 ) {
   fun <T: Any> applyAspect(
     targetClass: ClassDecl<T>,
-    vararg aspectDeclare: ClassDecl<*>,
+    vararg aspectClasses: ClassDecl<*>,
   ): AspectDecl<T> {
     val aspectLayers = mutableListOf<MutableList<ClassDecl<*>>>()
 
-    val queue = aspectDeclare.map { it to 0 }.toMutableList()
+    val queue = aspectClasses.map { it to 0 }.toMutableList()
     val solved = mutableSetOf<ClassDecl<*>>()
 
     while (queue.isNotEmpty()) {
@@ -42,7 +42,7 @@ class Aspector(
           ?.map { it.rawValue } ?: emptyList()
 
         extensions.forEach {
-          val classDecl = classMaker.classAccessor.getClassDecl<Any>(it)
+          val classDecl = aspectFactory.classAccessor.getClassDecl<Any>(it)
           queue.add(classDecl to depth + 1)
         }
       }
@@ -50,9 +50,9 @@ class Aspector(
 
     val flat = aspectLayers.flatMap { it }
     checkAspectDeclare(targetClass, flat)
-    classMaker.checkAspectable(targetClass, flat)
+    aspectFactory.checkAspectable(targetClass, flat)
 
-    val aspectDecl = classMaker.makeClass(targetClass, *flat.toTypedArray()) {
+    val aspectDecl = aspectFactory.makeClass(targetClass, *flat.toTypedArray()) {
       val stub = flat.flatMap { i ->
         (listOfNotNull(i.annotatedSuperClass) + i.annotatedInterfaces)
           .mapNotNull { it.annotations.find { a -> a.type == Stub::class.asName() }?.let { stub -> it.type to stub } }
@@ -91,6 +91,7 @@ class Aspector(
           .filter { method ->
             Modifier.isPrivate(method.flags)
             || Modifier.isStatic(method.flags)
+            || Modifier.isFinal(method.flags)
           }
           .forEach { method -> registerDeclMethod(method) }
 
@@ -106,6 +107,7 @@ class Aspector(
             .filter {
               !Modifier.isPrivate(it.flags)
               && !Modifier.isStatic(it.flags)
+              && !Modifier.isFinal(it.flags)
             }
             .map {
               it to (it.getAnnotation(AspectElement::class.asName())
@@ -134,13 +136,13 @@ class Aspector(
     return aspectDecl
   }
 
-  private fun checkAspectDeclare(targetClass: ClassDecl<*>, aspectDecl: List<ClassDecl<*>>) {
+  private fun checkAspectDeclare(targetClass: ClassDecl<*>, aspectClasses: List<ClassDecl<*>>) {
     // Check source type
     if (targetClass.let {
       it.isPrimitive || it.isEnum || it.isArray || it.isInterface
     }) throw IllegalArgumentException("Source class ${targetClass.name} must be a normal class")
 
-    aspectDecl.forEach { decl ->
+    aspectClasses.forEach { decl ->
       // Check implement type
       if (decl.let {
           it.isPrimitive || it.isEnum || it.isArray || it.isInterface

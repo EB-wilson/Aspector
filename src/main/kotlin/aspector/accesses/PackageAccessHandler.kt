@@ -1,13 +1,12 @@
 package aspector.accesses
 
 import aspector.annotations.PackageAccessor
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory.Companion.asName
 import aspector.classes.ClassAccessor
 import aspector.classes.ClassName
 import aspector.classes.ClassElement
 import aspector.classes.EConstructor
 import aspector.classes.EMethod
-import java.io.File
 import java.lang.reflect.Modifier
 
 abstract class PackageAccessHandler(

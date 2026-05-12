@@ -14,7 +14,7 @@ import aspector.classes.MethodSignature
 import kotlin.jvm.Throws
 import kotlin.reflect.KClass
 
-abstract class ClassMaker(
+abstract class AspectFactory(
   val classAccessor: ClassAccessor
 ) {
   companion object {
@@ -24,14 +24,14 @@ abstract class ClassMaker(
 
   fun <T: Any> makeClass(
     targetClass: ClassDecl<T>,
-    vararg aspectDecl: ClassDecl<*>,
+    vararg aspectClasses: ClassDecl<*>,
     scope: AspectBuilder.() -> Unit
   ): AspectResult<T> {
     val builder = AspectBuilder(
-      generateClassName(targetClass, *aspectDecl),
+      generateClassName(targetClass, *aspectClasses),
       targetClass.flags,
       targetClass.name,
-      aspectDecl.map { it.name }
+      aspectClasses.map { it.name }
     )
     builder.scope()
 
@@ -40,7 +40,7 @@ abstract class ClassMaker(
 
   abstract fun generateClassName(
     targetClass: ClassDecl<*>,
-    vararg aspectDecl: ClassDecl<*>
+    vararg aspectClasses: ClassDecl<*>
   ): ClassName
 
   abstract fun generateBytecode(
@@ -54,7 +54,7 @@ abstract class ClassMaker(
   ): Class<*>
 
   @Throws(Throwable::class)
-  abstract fun checkAspectable(sourceClass: ClassDecl<*>, aspectImpl: List<ClassDecl<*>>)
+  abstract fun checkAspectable(sourceClass: ClassDecl<*>, aspectClasses: List<ClassDecl<*>>)
 
   @Suppress("UNCHECKED_CAST")
   inner class AspectResult<T: Any>(

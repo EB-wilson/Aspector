@@ -1,6 +1,6 @@
 package aspector.classes
 
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory.Companion.asName
 
 sealed class AnnotationValue<T: Any, RT: Any>() {
   abstract fun getType(): ClassName

@@ -1,24 +1,25 @@
 package aspector
 
 import aspector.accesses.PackageAccessHandler
-import aspector.generate.ClassMaker
-import aspector.generate.ClassMaker.Companion.asName
+import aspector.generate.AspectFactory
+import aspector.generate.AspectFactory.Companion.asName
 import aspector.classes.BytecodeClassLoader
 import aspector.classes.BytecodeLoader
 import aspector.classes.ClassAccessor
 import aspector.classes.ReflectClassAccessor
+import kotlin.collections.map
 import kotlin.reflect.KClass
 
 object RuntimeAspector {
   inline fun <T> withMaker(
-    noinline makerFactory: (ClassAccessor) -> ClassMaker,
+    noinline makerFactory: (ClassAccessor) -> AspectFactory,
     noinline accessorFactory: ((ClassAccessor) -> PackageAccessHandler)? = null,
     vararg loaderPaths: ClassLoader,
     scope: AspectDelegate.() -> T
   ): T = withMaker(makerFactory, accessorFactory, *loaderPaths).scope()
 
   fun withMaker(
-    makerFactory: (ClassAccessor) -> ClassMaker,
+    makerFactory: (ClassAccessor) -> AspectFactory,
     accessorFactory: ((ClassAccessor) -> PackageAccessHandler)? = null,
     vararg loaderPaths: ClassLoader,
   ): AspectDelegate {
@@ -48,35 +49,35 @@ object RuntimeAspector {
     fun <T: Any> openPackage(target: Class<T>): Class<T> = packageAccessor?.getPackageAccessClass(target) ?:
       throw UnsupportedOperationException("Open package not found")
 
-    fun <T: Any> applyAspect(
-      aspectDeclare: KClass<*>,
-      targetClass: KClass<T>,
-    ) = applyAspect(aspectDeclare.java, targetClass.java)
-    fun <T: Any> applyAspect(
-      aspectDeclare: Class<*>,
-      targetClass: Class<T>,
-    ) = DeclDelegate<T>(aspector.applyAspect(
-      accessor.getClassDecl(targetClass.asName()),
-      accessor.getClassDecl<T>(aspectDeclare.asName())
-    ))
-
-    fun <T: Any, R> Class<*>.apply(
-      targetClass: Class<T>,
-      scope: DeclDelegate<T>.() -> R
-    ): R = applyOn(targetClass).scope()
-    fun <T: Any, R> KClass<*>.apply(
-      targetClass: KClass<T>,
-      scope: DeclDelegate<T>.() -> R
-    ): R = applyOn(targetClass).scope()
-    infix fun <T: Any> KClass<*>.applyOn(
-      targetClass: KClass<T>
-    ) = java.applyOn(targetClass.java)
-    infix fun <T: Any> Class<*>.applyOn(
-      targetClass: Class<T>
+    infix fun <T: Any> KClass<T>.apply(
+      aspectDecl: KClass<*>
+    ): DeclDelegate<T> = java.apply(aspectDecl.java)
+    infix fun <T: Any> Class<T>.apply(
+      aspectDecl: Class<*>
     ): DeclDelegate<T> = aspector.applyAspect(
-      accessor.getClassDecl<T>(targetClass.asName()),
-      accessor.getClassDecl<Any>(asName())
+      accessor.getClassDecl<T>(asName()),
+      accessor.getClassDecl<Any>(aspectDecl.asName())
     ).let { DeclDelegate(it) }
+
+    infix fun <T: Any> KClass<T>.apply(
+      aspectDecl: List<KClass<*>>
+    ): DeclDelegate<T> = java.apply(aspectDecl.map { it.java })
+    infix fun <T: Any> Class<T>.apply(
+      aspectDecl: List<Class<*>>
+    ): DeclDelegate<T> = aspector.applyAspect(
+      accessor.getClassDecl<T>(asName()),
+      *aspectDecl.map { accessor.getClassDecl<Any>(it.asName()) }
+        .toTypedArray()
+    ).let { DeclDelegate(it) }
+
+    fun <T: Any> applyAspect(
+      target: Class<T>,
+      vararg aspectDecl: Class<*>
+    ) = target.apply(aspectDecl.toList())
+    fun <T: Any> applyAspect(
+      target: KClass<T>,
+      vararg aspectDecl: KClass<*>
+    ) = target.apply(aspectDecl.toList())
 
     infix fun <T : Any> DeclDelegate<T>.with(loader: BytecodeLoader) = load(loader)
 
