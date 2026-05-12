@@ -56,12 +56,18 @@ class Aspector(
       val stub = flat.flatMap { i ->
         (listOfNotNull(i.annotatedSuperClass) + i.annotatedInterfaces)
           .mapNotNull { it.annotations.find { a -> a.type == Stub::class.asName() }?.let { stub -> it.type to stub } }
-      }.toSet()
+      }.reversed()
+        .toMap()
+        .toList()
+        .reversed()
       val nonStubInterfaces = flat.flatMap { i ->
         i.annotatedInterfaces
           .filter { it.getAnnotation(Stub::class.asName()) == null }
           .map { it.type }
-      }.toSet()
+      }.reversed()
+        .toSet()
+        .toList()
+        .reversed()
 
       // Register Stub spec
       stub.forEach { (decl, anno) ->
